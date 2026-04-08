@@ -1,8 +1,8 @@
 # 复现进度
 
 ## 当前状态
-- **阶段**: Phase 4（未开始）
-- **下一步**: 完整主图
+- **阶段**: Phase 3（已完成）
+- **下一步**: 暂不开始 Phase 4，等待进一步指令
 
 ## Phase 1: 基础设施 ✅
 - [x] pyproject.toml 补充依赖
@@ -21,9 +21,11 @@
 - [x] test_phase2.py 端到端验证通过
 
 ## Phase 3: Supervisor + 报告 ✅
-- [x] graph.py (supervisor)
+- [x] graph.py (supervisor + write_research_brief + final_report_generation)
 - [x] test_phase3.py
 - [x] 验证通过
+- 说明：当前 Phase 3 验证以控制流、状态流转和本地复盘日志为主
+- 说明：`test_phase3.py` 中对 `researcher_subgraph` 和报告模型使用了 dummy/stub
 
 ## Phase 4: 完整主图
 - [ ] graph.py (主图)

@@ -25,7 +25,7 @@ def _save_phase3_run(payload: dict) -> Path:
     return log_path
 
 
-def test_supervisor_tools_exits_and_collects_notes() -> None:
+def check_supervisor_tools_exits_and_collects_notes() -> None:
     """当没有新的工具调用时，Supervisor 应结束并汇总已有笔记。"""
     from graph import supervisor_tools
 
@@ -49,7 +49,7 @@ def test_supervisor_tools_exits_and_collects_notes() -> None:
     assert command.update["notes"] == ["研究笔记 A"]
 
 
-def test_supervisor_tools_runs_conduct_research(monkeypatch) -> None:
+def check_supervisor_tools_runs_conduct_research() -> None:
     """当收到 ConductResearch 调用时，应运行子图并回到 supervisor。"""
     import graph
 
@@ -61,7 +61,8 @@ def test_supervisor_tools_runs_conduct_research(monkeypatch) -> None:
                 "raw_notes": ["原始笔记 A"],
             }
 
-    monkeypatch.setattr(graph, "researcher_subgraph", DummySubgraph())
+    original_subgraph = graph.researcher_subgraph
+    graph.researcher_subgraph = DummySubgraph()
 
     state = {
         "supervisor_messages": [
@@ -78,14 +79,17 @@ def test_supervisor_tools_runs_conduct_research(monkeypatch) -> None:
         "research_iterations": 1,
     }
 
-    command = asyncio.run(graph.supervisor_tools(state, config={}))
+    try:
+        command = asyncio.run(graph.supervisor_tools(state, config={}))
+    finally:
+        graph.researcher_subgraph = original_subgraph
 
     assert command.goto == "supervisor"
     assert command.update["raw_notes"] == ["原始笔记 A"]
     assert command.update["supervisor_messages"][0].content == "子研究摘要"
 
 
-def test_final_report_generation_success(monkeypatch) -> None:
+def check_final_report_generation_success() -> None:
     """报告生成成功时，应返回 final_report 并清空 notes。"""
     import graph
 
@@ -96,7 +100,8 @@ def test_final_report_generation_success(monkeypatch) -> None:
         async def ainvoke(self, messages):
             return AIMessage(content="最终报告内容")
 
-    monkeypatch.setattr(graph, "configurable_model", DummyModel())
+    original_model = graph.configurable_model
+    graph.configurable_model = DummyModel()
 
     state = {
         "messages": [],
@@ -104,7 +109,10 @@ def test_final_report_generation_success(monkeypatch) -> None:
         "research_brief": "输出最终总结",
     }
 
-    result = asyncio.run(graph.final_report_generation(state, config={}))
+    try:
+        result = asyncio.run(graph.final_report_generation(state, config={}))
+    finally:
+        graph.configurable_model = original_model
 
     assert result["final_report"] == "最终报告内容"
     assert result["messages"][0].content == "最终报告内容"
@@ -170,4 +178,8 @@ async def _run_phase3_demo() -> None:
 
 
 if __name__ == "__main__":
+    check_supervisor_tools_exits_and_collects_notes()
+    check_supervisor_tools_runs_conduct_research()
+    check_final_report_generation_success()
+    print("✅ Phase 3 基础检查通过")
     asyncio.run(_run_phase3_demo())
