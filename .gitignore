@@ -6,6 +6,9 @@ __pycache__/
 .ruff_cache/
 .langgraph_api/
 .debug_runs/
+.agents/
+.vscode/
+.DS_Store
 *.pyc
 dist/
 build/
@@ -16,6 +19,8 @@ rag/backups/
 rag/local_mariadb/
 rag/migration_logs/
 rag/vectordb/
+rag/eval/results/*.json
+rag/eval/results/*.log
 
 # 原版参考源码
 reference/

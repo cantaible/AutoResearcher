@@ -1,8 +1,8 @@
 # 复现进度
 
 ## 当前状态
-- **阶段**: Phase 3（未开始）
-- **下一步**: Supervisor 子图
+- **阶段**: Phase 4（未开始）
+- **下一步**: 完整主图
 
 ## Phase 1: 基础设施 ✅
 - [x] pyproject.toml 补充依赖
@@ -20,10 +20,10 @@
 - [x] scripts/export_run.py 运行记录导出
 - [x] test_phase2.py 端到端验证通过
 
-## Phase 3: Supervisor + 报告
-- [ ] graph.py (supervisor)
-- [ ] test_phase3.py
-- [ ] 验证通过
+## Phase 3: Supervisor + 报告 ✅
+- [x] graph.py (supervisor)
+- [x] test_phase3.py
+- [x] 验证通过
 
 ## Phase 4: 完整主图
 - [ ] graph.py (主图)

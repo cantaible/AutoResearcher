@@ -12,6 +12,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolArg, tool
 
 from configuration import Configuration, SearchAPI
+from state import ResearchComplete
 
 
 ##########################
@@ -233,19 +234,16 @@ async def get_all_tools(config: RunnableConfig):
     """获取 Researcher 可用的所有工具列表。
 
     这是 Researcher 节点获取工具的唯一入口。
-    组合：搜索工具 + think_tool + MCP 工具（暂为空）。
+    组合：ResearchComplete + 搜索工具 + think_tool + MCP 工具（暂为空）。
     """
-    tools = []
+    tools = [tool(ResearchComplete), think_tool]
 
     # 1. 添加搜索工具（如果有）
     search_tool = get_search_tool(config)
     if search_tool:
         tools.append(search_tool)
 
-    # 2. 添加反思工具（始终可用）
-    tools.append(think_tool)
-
-    # 3. MCP 工具（暂时 stub，后续阶段实现）
+    # 2. MCP 工具（暂时 stub，后续阶段实现）
     # TODO: 从 MCP 服务器加载外部工具
 
 
