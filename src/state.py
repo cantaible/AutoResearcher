@@ -70,6 +70,51 @@ class RAGQueryPlan(BaseModel):
         description="拆分后的子查询列表，按时间窗口或子主题拆分以提高召回率",
     )
 
+
+# ── LATS 树搜索子图 ──
+
+class TreeNode(BaseModel):
+    """搜索树中的一个节点。"""
+    id: str
+    query: str
+    dimension: str = ""                 # 拆分维度: region/company/type/time
+    parent_id: Optional[str] = None
+    children_ids: list[str] = Field(default_factory=list)
+    depth: int = 0
+    status: str = "pending"             # pending | expanded | leaf | pruned
+    search_results: str = ""
+    result_count: int = 0
+    relevance_score: float = 0.0
+    completeness_score: float = 0.0
+    visits: int = 0
+    value: float = 0.0
+
+class NodeEvaluation(BaseModel):
+    """LLM 对搜索结果的评估打分。"""
+    relevance_score: float = Field(description="结果与研究主题的相关性，0-1")
+    completeness_score: float = Field(description="该方向是否还需深入，0=已完整 1=需要深入")
+    reasoning: str = Field(description="打分理由")
+
+class LATSExpandResult(BaseModel):
+    """LLM 展开节点时生成的子查询列表。"""
+    sub_queries: list[str] = Field(description="子查询列表，空列表表示不需要展开")
+    dimensions: list[str] = Field(description="每个子查询对应的拆分维度")
+
+class ConductLATSResearch(BaseModel):
+    """委派 LATS 树搜索研究任务。适合需要发散探索的复杂调研场景。"""
+    research_topic: str = Field(description="要研究的主题")
+
+class LATSResearcherState(TypedDict):
+    """LATS 树搜索子图的完整状态。"""
+    research_topic: str
+    tree: dict                          # node_id → TreeNode.model_dump()
+    root_id: str
+    current_node_id: str
+    iteration: int
+    collected_findings: list[str]
+    compressed_research: str
+
+
 class AgentInputState(MessagesState):
     """图输入状态，只暴露 messages 给外部调用者。"""
 

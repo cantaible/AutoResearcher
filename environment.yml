@@ -1,4 +1,4 @@
-name: agent_hello_world
+name: auto_researcher
 channels:
   - conda-forge
   - defaults

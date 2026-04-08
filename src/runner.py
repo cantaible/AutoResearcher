@@ -126,18 +126,28 @@ async def run_research(
         while True:
             # 流式执行主图，逐事件处理
             # astream_events() 返回异步迭代器：图在后台执行，每发生一件事就吐出一个事件
-            event_stream = graph.astream_events(
-                {"messages": messages}, config, version="v2"
-            )
-            while True:
-                try:
-                    raw = await event_stream.__anext__()  # 等待下一个事件（可能等几秒）
-                except StopAsyncIteration:
-                    break  # 没有更多事件了（图执行完毕）
-                evt = normalize_event(raw)
-                if evt:
-                    append_event(events_path, evt)  # 实时写入 events.jsonl
-                    await on_event(evt)             # 通知 TUI 渲染
+            try:
+                event_stream = graph.astream_events(
+                    {"messages": messages}, config, version="v2"
+                )
+                while True:
+                    try:
+                        raw = await event_stream.__anext__()  # 等待下一个事件（可能等几秒）
+                    except StopAsyncIteration:
+                        break  # 没有更多事件了（图执行完毕）
+                    evt = normalize_event(raw)
+                    if evt:
+                        append_event(events_path, evt)  # 实时写入 events.jsonl
+                        await on_event(evt)             # 通知 TUI 渲染
+            except Exception as e:
+                # 图执行过程中出错：记录并通知 UI，但不中断 runner
+                import traceback
+                error_msg = f"研究执行出错: {e}\n{traceback.format_exc()}"
+                print(error_msg, file=sys.stderr)
+                append_event(events_path, {
+                    "type": "error", "message": str(e),
+                    "ts": datetime.now().isoformat()
+                })
 
             # 检查运行结果：完成 or 需要澄清
             state = await graph.aget_state(config)

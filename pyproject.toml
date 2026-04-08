@@ -1,5 +1,5 @@
 [project]
-name = "agent_hello_world"
+name = "AutoResearcher"
 version = "0.1.0"
 description = "一个最小可运行的中文 LangGraph Agent 基础项目。"
 readme = "README.md"
@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-agent_hello_world-agent = "cli:main"
+autoresearcher-agent = "cli:main"
 
 [project.optional-dependencies]
 dev = [

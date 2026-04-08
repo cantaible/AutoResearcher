@@ -26,6 +26,8 @@ from state import (
     ResearcherOutputState, ResearcherState, SupervisorState, AgentState,
 )
 from rag_subgraph import rag_researcher_builder
+# TODO: LATS 子图调试完成后再接入主流程
+# from lats_subgraph import lats_researcher_builder
 from utils import (
     get_all_tools, get_api_key_for_model, get_model_token_limit,
     get_today_str, is_token_limit_exceeded, think_tool,
@@ -58,9 +60,9 @@ async def researcher(state: ResearcherState, config: RunnableConfig):
         .bind_tools(tools)
         .with_retry(stop_after_attempt=configurable.max_structured_output_retries)
         .with_config({
-            "model": configurable.research_model,
-            "max_tokens": configurable.research_model_max_tokens,
-            "api_key": get_api_key_for_model(configurable.research_model, config),
+            "model": configurable.hard_model,
+            "max_tokens": configurable.hard_model_max_tokens,
+            "api_key": get_api_key_for_model(configurable.hard_model, config),
             "tags": ["langsmith:nostream"],
         })
     )
@@ -163,9 +165,9 @@ async def compress_research(state: ResearcherState, config: RunnableConfig):
 
     configurable = Configuration.from_runnable_config(config)
     synth_model = configurable_model.with_config({
-        "model": configurable.compression_model,
+        "model": configurable.effective_compression_model,
         "max_tokens": configurable.compression_model_max_tokens,
-        "api_key": get_api_key_for_model(configurable.compression_model, config),
+        "api_key": get_api_key_for_model(configurable.effective_compression_model, config),
         "tags": ["langsmith:nostream"],
     })
 
@@ -183,7 +185,7 @@ async def compress_research(state: ResearcherState, config: RunnableConfig):
                 researcher_messages, include_types=["tool", "ai"]))
             return {"compressed_research": str(response.content), "raw_notes": [raw]}
         except Exception as e:
-            if is_token_limit_exceeded(e, configurable.compression_model):
+            if is_token_limit_exceeded(e, configurable.effective_compression_model):
                 researcher_messages = remove_up_to_last_ai_message(researcher_messages)
             continue
 
@@ -221,19 +223,21 @@ async def supervisor(state: SupervisorState, config: RunnableConfig):
     ConductResearch 将任务委派给 Researcher 子图执行。
     """
     configurable = Configuration.from_runnable_config(config)
-    # Supervisor 可用的 3 个工具：
+    # Supervisor 可用的 4 个工具：
     #   ConductResearch — 委派研究任务给子 Researcher
+    #   ConductRAGResearch  — RAG 日期范围搜索
     #   ResearchComplete — 表示研究已完成
     #   think_tool      — 策略反思
+    # TODO: LATS 调试完成后加入 ConductLATSResearch
     lead_researcher_tools = [ConductResearch, ConductRAGResearch, ResearchComplete, think_tool]
     research_model = (
         configurable_model
         .bind_tools(lead_researcher_tools)
         .with_retry(stop_after_attempt=configurable.max_structured_output_retries)
         .with_config({
-            "model": configurable.research_model,
-            "max_tokens": configurable.research_model_max_tokens,
-            "api_key": get_api_key_for_model(configurable.research_model, config),
+            "model": configurable.hard_model,
+            "max_tokens": configurable.hard_model_max_tokens,
+            "api_key": get_api_key_for_model(configurable.hard_model, config),
             "tags": ["langsmith:nostream"],
         })
     )
@@ -271,6 +275,9 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
     configurable = Configuration.from_runnable_config(config)
     supervisor_messages = state.get("supervisor_messages", [])
     research_iterations = state.get("research_iterations", 0)
+    # 防御：LangGraph 状态合并可能导致 int 字段变为 list
+    if isinstance(research_iterations, list):
+        research_iterations = research_iterations[-1] if research_iterations else 0
     most_recent = supervisor_messages[-1]
 
     # ── 退出条件检查 ──
@@ -345,7 +352,7 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
         except Exception as e:
 
             # token 超限或其他异常，直接结束研究阶段
-            if is_token_limit_exceeded(e, configurable.research_model) or True:
+            if is_token_limit_exceeded(e, configurable.hard_model) or True:
                 return Command(
                     goto=END,
                     update={
@@ -383,6 +390,12 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
                     tool_call_id=tc["id"],
                 ))
 
+
+    # TODO: LATS 子图调试完成后取消注释
+    # 4) ConductLATSResearch：调用 LATS 树搜索子图
+    # lats_calls = [tc for tc in most_recent.tool_calls if tc["name"] == "ConductLATSResearch"]
+    # if lats_calls: ...
+
     # 返回结果，继续 supervisor 循环
     update_payload["supervisor_messages"] = all_tool_messages
     return Command(goto="supervisor", update=update_payload)
@@ -413,12 +426,12 @@ async def clarify_with_user(state: AgentState, config: RunnableConfig) -> Comman
     if not configurable.allow_clarification:
         return Command(goto="write_research_brief")
 
-    # Step 2: 配置模型，使用 ClarifyWithUser 结构化输出
+    # Step 2: 配置模型，使用 ClarifyWithUser 结构化输出（Worker 层级，节省成本）
     messages = state["messages"]
     model_config = {
-        "model": configurable.research_model,
-        "max_tokens": configurable.research_model_max_tokens,
-        "api_key": get_api_key_for_model(configurable.research_model, config),
+        "model": configurable.simple_model,
+        "max_tokens": configurable.simple_model_max_tokens,
+        "api_key": get_api_key_for_model(configurable.simple_model, config),
         "tags": ["langsmith:nostream"],
     }
     clarification_model = (
@@ -463,14 +476,15 @@ async def write_research_brief(state: AgentState, config: RunnableConfig) -> Com
     from langgraph.types import Command
     
     configurable = Configuration.from_runnable_config(config)
+    # 研究简报生成用 Worker 层级模型（简单的结构化提取任务）
     research_model = (
         configurable_model
         .with_structured_output(ResearchQuestion)
         .with_retry(stop_after_attempt=configurable.max_structured_output_retries)
         .with_config({
-            "model": configurable.research_model,
-            "max_tokens": configurable.research_model_max_tokens,
-            "api_key": get_api_key_for_model(configurable.research_model, config),
+            "model": configurable.simple_model,
+            "max_tokens": configurable.simple_model_max_tokens,
+            "api_key": get_api_key_for_model(configurable.simple_model, config),
             "tags": ["langsmith:nostream"],
         })
     )
@@ -522,9 +536,9 @@ async def final_report_generation(state: AgentState, config: RunnableConfig):
 
     configurable = Configuration.from_runnable_config(config)
     writer_config = {
-        "model": configurable.final_report_model,
+        "model": configurable.effective_final_report_model,
         "max_tokens": configurable.final_report_model_max_tokens,
-        "api_key": get_api_key_for_model(configurable.final_report_model, config),
+        "api_key": get_api_key_for_model(configurable.effective_final_report_model, config),
         "tags": ["langsmith:nostream"],
     }
 
@@ -549,7 +563,7 @@ async def final_report_generation(state: AgentState, config: RunnableConfig):
                 **cleared_state
             }
         except Exception as e:
-            if is_token_limit_exceeded(e, configurable.final_report_model):
+            if is_token_limit_exceeded(e, configurable.effective_final_report_model):
                 current_retry += 1
                 if current_retry == 1:
                     limit = get_model_token_limit(configurable.final_report_model)

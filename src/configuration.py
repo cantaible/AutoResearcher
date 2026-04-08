@@ -59,21 +59,45 @@ class Configuration(BaseModel):
     # 单个 Researcher 的最大工具调用次数（ReAct 循环上限）
     max_react_tool_calls: int = 10
 
-    # ── 模型配置（4 个角色，各自可独立配置模型） ──
+    # ── 模型配置（三层分级） ──
+    #
+    # Tier 1 - Simple（廉价打杂）：
+    #   用于澄清判断、研究简报、压缩摘要、LATS expand/aggregate 等简单任务
+    simple_model: str = "openai:gpt-4.1-mini"
+    simple_model_max_tokens: int = 8192
+    #
+    # Tier 2 - Medium（中等难度写作）：
+    #   用于最终报告生成，可挂载最擅长长文结构化写作的模型
+    medium_model: str = "openai:gpt-5.4"
+    medium_model_max_tokens: int = 10000
+    #
+    # Tier 3 - Hard（核心推理）：
+    #   用于 Supervisor 决策、Researcher ReAct 工具调用、LATS evaluate 评估
+    hard_model: str = "openai:gpt-5.4"
+    hard_model_max_tokens: int = 10000
+    #
+    # ── 可独立覆盖的特化模型（默认跟随所属层级） ──
     # 摘要模型：用于汇总 Tavily 搜索结果的网页内容
     summarization_model: str = "openai:gpt-4.1-mini"
     summarization_model_max_tokens: int = 8192
     # 网页内容最大字符数，超过此长度会被截断后再摘要
     max_content_length: int = 50000
-    # 研究模型：Researcher 和 Supervisor 使用的主力模型
-    research_model: str = "openai:gpt-4.1"
-    research_model_max_tokens: int = 10000
-    # 压缩模型：将 Researcher 的搜索记录压缩为精炼摘要
-    compression_model: str = "openai:gpt-4.1"
+    # 压缩模型：默认跟随 simple_model；可独立覆盖
+    compression_model: str = ""
     compression_model_max_tokens: int = 8192
-    # 报告模型：生成最终研究报告
-    final_report_model: str = "openai:gpt-4.1"
+    # 报告模型：向后兼容别名，默认跟随 medium_model
+    final_report_model: str = ""
     final_report_model_max_tokens: int = 10000
+
+    @property
+    def effective_compression_model(self) -> str:
+        """压缩模型：有独立配置则用，否则跟随 simple_model。"""
+        return self.compression_model or self.simple_model
+
+    @property
+    def effective_final_report_model(self) -> str:
+        """报告模型：有独立配置则用，否则跟随 medium_model。"""
+        return self.final_report_model or self.medium_model
 
     # ── MCP 配置（可选，本项目暂不使用） ──
     mcp_config: Optional[MCPConfig] = None
@@ -86,7 +110,7 @@ class Configuration(BaseModel):
         """从 RunnableConfig 和环境变量创建配置实例。
 
         优先级：configurable 参数 > 环境变量 > 默认值。
-        环境变量名 = 字段名的大写形式（如 research_model → RESEARCH_MODEL）。
+        环境变量名 = 字段名的大写形式（如 hard_model → HARD_MODEL）。
         """
         configurable = config.get("configurable", {}) if config else {}
         # 自动遍历所有字段，不再手动一个个列举

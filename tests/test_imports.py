@@ -19,7 +19,7 @@ def test_config():
     from configuration import Configuration, SearchAPI, MCPConfig
     cfg = Configuration()
     assert cfg.search_api == SearchAPI.TAVILY
-    assert cfg.research_model == "openai:gpt-4.1"
+    assert cfg.simple_model == "openai:gpt-4.1-mini"
     assert cfg.max_react_tool_calls == 10
     assert cfg.max_researcher_iterations == 6
     assert cfg.max_concurrent_research_units == 5

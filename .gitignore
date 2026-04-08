@@ -27,3 +27,6 @@ reference/
 
 # 运行日志
 logs/
+
+# 批量实验结果
+experiments/results/

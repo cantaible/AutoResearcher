@@ -5,12 +5,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from graph import agent_graph
+from graph import deep_researcher as agent_graph
 
 
 def parse_args() -> argparse.Namespace:
     """解析命令行参数。"""
-    parser = argparse.ArgumentParser(description="运行 agent_hello_world 单节点 Agent。")
+    parser = argparse.ArgumentParser(description="运行 AutoResearcher 单节点 Agent。")
     parser.add_argument(
         "--message",
         default="",
@@ -35,7 +35,7 @@ def main() -> None:
         raise SystemExit("输入不能为空。")
 
     output = asyncio.run(_run_once(message))
-    print(f"\n[agent_hello_world]\n{output}\n")
+    print(f"\n[AutoResearcher]\n{output}\n")
 
 
 if __name__ == "__main__":

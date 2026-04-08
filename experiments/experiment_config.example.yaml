@@ -1,0 +1,61 @@
+# ============================================================
+# Deep Research 批量实验配置
+# ============================================================
+# 用法：
+#   python scripts/batch_runner.py experiments/experiment_config.example.yaml
+#
+# 每个 experiment 会使用指定的配置覆盖默认的 Configuration 字段，
+# 然后对所有 topics 逐一运行研究，结果保存到 experiments/results/ 目录。
+# ============================================================
+
+# 全局设置
+global:
+  # 是否禁用用户澄清（批量运行必须禁用，否则会卡住等待输入）
+  allow_clarification: false
+  # 实验结果输出目录（相对于项目根目录）
+  output_dir: experiments/results
+
+# 待测试的研究主题（所有实验都会跑这些主题）
+topics:
+  - "2026年第一季度全球AI芯片市场格局分析"
+  - "对比分析GPT-4.1和Claude 4的技术特点"
+
+# 实验列表：每组实验覆盖不同的配置参数
+experiments:
+  # ── 实验 1：GPT-4.1 全栈（默认配置基线） ──
+  - name: "baseline_gpt41"
+    description: "GPT-4.1 全栈默认配置，作为基线"
+    config:
+      research_model: "openai:gpt-4.1"
+      compression_model: "openai:gpt-4.1"
+      final_report_model: "openai:gpt-4.1"
+      max_researcher_iterations: 6
+      max_react_tool_calls: 10
+      max_concurrent_research_units: 5
+
+  # ── 实验 2：Claude 4 Sonnet 全栈 ──
+  - name: "claude4_sonnet"
+    description: "Claude 4 Sonnet 全栈，对比不同模型效果"
+    config:
+      research_model: "anthropic:claude-sonnet-4-20250514"
+      compression_model: "anthropic:claude-sonnet-4-20250514"
+      final_report_model: "anthropic:claude-sonnet-4-20250514"
+      max_researcher_iterations: 6
+      max_react_tool_calls: 10
+
+  # ── 实验 3：减少迭代次数 ──
+  - name: "fast_shallow"
+    description: "减少迭代次数，测试浅层研究质量"
+    config:
+      research_model: "openai:gpt-4.1"
+      max_researcher_iterations: 3
+      max_react_tool_calls: 5
+      max_concurrent_research_units: 3
+
+  # ── 实验 4：混合模型（研究用 GPT-4.1，报告用 Claude） ──
+  - name: "hybrid_gpt_claude"
+    description: "研究阶段 GPT-4.1 + 报告阶段 Claude"
+    config:
+      research_model: "openai:gpt-4.1"
+      compression_model: "openai:gpt-4.1"
+      final_report_model: "anthropic:claude-sonnet-4-20250514"

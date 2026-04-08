@@ -17,7 +17,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "rag"))
 
 from configuration import Configuration
 from state import RAGQueryPlan, RAGResearcherState, ResearcherOutputState
-from graph import configurable_model
+
+def _get_model():
+    """延迟导入 configurable_model 以避免循环依赖。"""
+    from graph import configurable_model
+    return configurable_model
 from utils import get_api_key_for_model
 
 # ── Plan 阶段的系统提示 ──
@@ -44,10 +48,10 @@ RAG_PLAN_PROMPT = """你是一个查询规划助手。将用户的研究主题�
 async def plan(state: RAGResearcherState, config) -> dict:
     """Plan 节点：LLM 将研究主题拆分为子查询列表。"""
     configurable = Configuration.from_runnable_config(config)
-    model = configurable_model.with_config({
-        "model": configurable.research_model,
-        "max_tokens": configurable.research_model_max_tokens,
-        "api_key": get_api_key_for_model(configurable.research_model, config),
+    model = _get_model().with_config({
+        "model": configurable.simple_model,
+        "max_tokens": configurable.simple_model_max_tokens,
+        "api_key": get_api_key_for_model(configurable.simple_model, config),
     })
     structured_model = model.with_structured_output(RAGQueryPlan)
 
@@ -119,10 +123,10 @@ RAG_COMPRESS_PROMPT = """你是一个研究结果整合助手。将多个查询�
 async def compress(state: RAGResearcherState, config) -> dict:
     """Compress 节点：合并去重所有子查询结果，压缩为摘要。"""
     configurable = Configuration.from_runnable_config(config)
-    model = configurable_model.with_config({
-        "model": configurable.research_model,
-        "max_tokens": configurable.research_model_max_tokens,
-        "api_key": get_api_key_for_model(configurable.research_model, config),
+    model = _get_model().with_config({
+        "model": configurable.simple_model,
+        "max_tokens": configurable.simple_model_max_tokens,
+        "api_key": get_api_key_for_model(configurable.simple_model, config),
     })
 
     all_results = "\n\n".join(state.get("raw_results", []))
