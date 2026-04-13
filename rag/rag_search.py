@@ -211,6 +211,7 @@ def rag_search(query: str, days: int = 0, category: str = "",
         title = doc.split("\n")[0] if doc else f"article_{meta.get('article_id', '?')}"
         source_label = "+".join(item.get("sources", [])) or "unknown"
         output.append(f"--- 结果 {i} [{source_label}] ---")
+        output.append(f"ArticleID: {meta.get('article_id', '?')}")
         output.append(f"标题: {title}")
         output.append(f"元数据: [{meta.get('category')}] | [{meta.get('source_name')}]")
         output.append(f"Rerank分数: {item.get('rerank_score', 0.0):.4f}")

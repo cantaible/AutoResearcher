@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>模型家族合并工具</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f0f1a; color: #e0e0e0; padding: 20px; max-width: 900px; margin: 0 auto;
+  }
+  h1 { color: #7c8aff; margin-bottom: 6px; font-size: 22px; }
+  .desc { color: #888; font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+  .controls {
+    position: sticky; top: 0; z-index: 100;
+    background: #1a1a2e; border: 1px solid #333; border-radius: 10px;
+    padding: 12px 20px; margin-bottom: 16px;
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .controls button {
+    background: #7c8aff; color: #fff; border: none;
+    padding: 7px 16px; border-radius: 6px; cursor: pointer;
+    font-size: 13px; font-weight: 600;
+  }
+  .controls button:hover { background: #5b6be0; }
+  .controls button.merge { background: #e67e22; }
+  .controls button.merge:hover { background: #d35400; }
+  .controls button.danger { background: #e74c3c; }
+  .controls button.danger:hover { background: #c0392b; }
+  .controls .count { color: #7c8aff; font-weight: 600; font-size: 13px; }
+  .family {
+    background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 8px;
+    margin-bottom: 8px; overflow: hidden;
+  }
+  .family-header {
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+    background: #16213e; cursor: pointer; user-select: none;
+  }
+  .family-header:hover { background: #1a2744; }
+  .family-name {
+    font-weight: 700; font-size: 15px; color: #7c8aff; flex: 1;
+  }
+  .family-name input {
+    background: transparent; border: 1px solid #444; color: #7c8aff;
+    font-size: 15px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+    width: 250px;
+  }
+  .family-members {
+    color: #aaa; font-size: 12px; padding: 0 16px 8px 16px;
+  }
+  .member-tag {
+    display: inline-block; background: #2a2a4a; padding: 2px 8px;
+    border-radius: 4px; margin: 2px 4px 2px 0; font-size: 12px;
+  }
+  .member-tag .art-count { color: #666; }
+  .family-check {
+    width: 18px; height: 18px; border: 2px solid #555; border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 12px; flex-shrink: 0;
+  }
+  .family-check.selected { border-color: #e67e22; background: #3a2a1a; color: #e67e22; }
+  .event-count {
+    background: #333; color: #aaa; padding: 2px 8px;
+    border-radius: 10px; font-size: 11px;
+  }
+</style>
+</head>
+<body>
+<h1>🔗 模型家族合并工具</h1>
+<div class="desc">
+  选中多个事件 → 点击"合并选中项"将它们归入同一个模型家族。合并后，检索到家族中任一事件即算命中。<br>
+  点击家族名可编辑。完成后点"导出"下载 <code>event_families.json</code>。
+</div>
+<div class="controls">
+  <button class="merge" onclick="mergeSelected()">🔗 合并选中项</button>
+  <button class="danger" onclick="deleteSelected()">🗑️ 删除选中项</button>
+  <button onclick="exportResult()">💾 导出结果</button>
+  <span class="count" id="liveCount"></span>
+</div>
+<div id="container"></div>
+
+<script>
+const EVENT_DATA = {"ASMR": [7433, 7494], "Composer": [6687], "Composer 2": [7050, 7067, 7073, 7074, 7122, 7197, 7270, 7290], "DeepSeek V4": [4362, 5085, 6304], "DeepSeek V4 Lite": [4574], "Fun-CineForge": [6354, 6358, 6365, 6528], "Fun-CosyVoice3.5 & Fun-AudioGen-VD": [4384, 4389], "GLM-5-Turbo": [6319, 6476], "GPT-5.3 Instant": [4693, 4699, 4701, 4710, 4757, 4818, 4836, 4938, 5106], "GPT-5.3 Instant & Gemini 3.1 Flash-Lite": [4729, 4878], "GPT-5.4": [5045, 5053, 5056, 5059, 5070, 5075, 5077, 5080, 5099, 5122, 5164], "GPT-5.4 mini": [6661, 6676, 6678, 6689, 6780, 7134], "Gemini 3.1 Flash-Lite": [4700, 4711, 4722, 4766, 4817, 5108], "Gemini Embedding 2": [5700, 5707, 5729, 5784, 5913], "Granite 4.0 1B Speech": [6357], "Grok 4.20": [6092, 6126], "LeWorldModel": [7539, 7568], "LiTo": [6470, 6670], "LongCat-Flash-Prover": [7311, 7515], "MAI-Image-2": [7045], "Mamba-3": [6883, 7137], "MiMo": [7310], "MiMo-V2": [6900, 6911], "MiMo-V2-Pro": [6858, 7029, 7313], "MiMo-V2-TTS": [6844, 6845], "Midjourney V8": [6889], "MiniMax M2.7": [6713, 6767, 6793, 6857, 7504], "Mistral Small 4": [6457, 6552, 7099], "Nemotron 3": [6465], "Nemotron 3 Super": [5924, 5936, 5955], "PAI": [5019], "Phi-4-reasoning-vision-15B": [4887, 4888], "Qwen3.5": [4407, 4530, 4537, 4546, 4599, 4614, 4630, 5323], "Qwen3.5-Max-Preview": [7034, 7049, 7056], "Rakuten AI 2.0": [6708], "Rakuten AI 3.0": [6587, 6755], "Seedance 2.0": [7344, 7512, 7544], "SkyReels V4": [6886, 6922, 7138], "Solaris": [5714, 5759], "Step 3.5 Flash": [4714, 4737], "Suno v5 & Lyria3": [5140], "TADA": [5706, 5950], "UNI-1": [5119, 5220, 5222, 7470], "Vidu Q3": [7149], "Yuan3.0 Ultra": [4975, 5013]};
+
+// state: [{familyName: str, events: [{name: str, articleIds: [int]}], selected: bool}]
+let families = Object.entries(EVENT_DATA).map(([name, ids]) => ({
+  familyName: name,
+  events: [{ name, articleIds: ids }],
+  selected: false,
+}));
+
+function updateCount() {
+  document.getElementById('liveCount').textContent =
+    `${families.length} 个家族 (原始 ${Object.keys(EVENT_DATA).length} 个事件)`;
+}
+
+function toggleSelect(idx) {
+  families[idx].selected = !families[idx].selected;
+  render();
+}
+
+function mergeSelected() {
+  const selected = families.filter(f => f.selected);
+  if (selected.length < 2) { alert('请至少选中 2 个家族'); return; }
+
+  // 合并到第一个选中的
+  const merged = selected[0];
+  for (let i = 1; i < selected.length; i++) {
+    merged.events.push(...selected[i].events);
+  }
+  merged.selected = false;
+
+  // 弹框让用户命名
+  const allNames = merged.events.map(e => e.name).join(', ');
+  const newName = prompt(`合并后的家族名称（包含: ${allNames}）:`, merged.familyName);
+  if (newName) merged.familyName = newName;
+
+  // 移除被合并的
+  families = families.filter(f => !f.selected || f === merged);
+  render();
+}
+
+function deleteSelected() {
+  const selected = families.filter(f => f.selected);
+  if (selected.length === 0) { alert('请先选中要删除的项'); return; }
+  const names = selected.map(f => f.familyName).join(', ');
+  if (!confirm(`确认删除 ${selected.length} 个家族？\n${names}`)) return;
+  families = families.filter(f => !f.selected);
+  render();
+}
+
+function renameFamilyInput(idx, value) {
+  families[idx].familyName = value;
+  updateCount();
+}
+
+function exportResult() {
+  const result = {};
+  families.forEach(f => {
+    const allIds = [];
+    f.events.forEach(e => { allIds.push(...e.articleIds); });
+    result[f.familyName] = {
+      events: f.events.map(e => e.name),
+      article_ids: allIds,
+    };
+  });
+  const blob = new Blob([JSON.stringify(result, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'event_families.json';
+  a.click();
+  alert(`已导出 ${Object.keys(result).length} 个家族`);
+}
+
+function render() {
+  const container = document.getElementById('container');
+  container.innerHTML = '';
+  families.forEach((f, idx) => {
+    const totalArts = f.events.reduce((s, e) => s + e.articleIds.length, 0);
+    const div = document.createElement('div');
+    div.className = 'family';
+    div.innerHTML = `
+      <div class="family-header" onclick="toggleSelect(${idx})">
+        <div class="family-check ${f.selected ? 'selected' : ''}">${f.selected ? '✓' : ''}</div>
+        <div class="family-name">
+          <input value="${f.familyName}" onclick="event.stopPropagation()"
+                 onchange="renameFamilyInput(${idx}, this.value)" />
+        </div>
+        <span class="event-count">${f.events.length} 事件, ${totalArts} 篇</span>
+      </div>
+      ${f.events.length > 1 ? `<div class="family-members">
+        ${f.events.map(e => `<span class="member-tag">${e.name} <span class="art-count">(${e.articleIds.length})</span></span>`).join('')}
+      </div>` : ''}
+    `;
+    container.appendChild(div);
+  });
+  updateCount();
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+{
+  "ASMR": {
+    "events": [
+      "ASMR"
+    ],
+    "article_ids": [
+      7433,
+      7494
+    ]
+  },
+  "Composer": {
+    "events": [
+      "Composer",
+      "Composer 2"
+    ],
+    "article_ids": [
+      6687,
+      7050,
+      7067,
+      7073,
+      7074,
+      7122,
+      7197,
+      7270,
+      7290
+    ]
+  },
+  "DeepSeek V4": {
+    "events": [
+      "DeepSeek V4",
+      "DeepSeek V4 Lite"
+    ],
+    "article_ids": [
+      4362,
+      5085,
+      6304,
+      4574
+    ]
+  },
+  "GLM-5-Turbo": {
+    "events": [
+      "GLM-5-Turbo"
+    ],
+    "article_ids": [
+      6319,
+      6476
+    ]
+  },
+  "GPT-5.3 Instant": {
+    "events": [
+      "GPT-5.3 Instant",
+      "GPT-5.3 Instant & Gemini 3.1 Flash-Lite"
+    ],
+    "article_ids": [
+      4693,
+      4699,
+      4701,
+      4710,
+      4757,
+      4818,
+      4836,
+      4938,
+      5106,
+      4729,
+      4878
+    ]
+  },
+  "GPT-5.4": {
+    "events": [
+      "GPT-5.4",
+      "GPT-5.4 mini"
+    ],
+    "article_ids": [
+      5045,
+      5053,
+      5056,
+      5059,
+      5070,
+      5075,
+      5077,
+      5080,
+      5099,
+      5122,
+      5164,
+      6661,
+      6676,
+      6678,
+      6689,
+      6780,
+      7134
+    ]
+  },
+  "Gemini 3.1 Flash-Lite": {
+    "events": [
+      "Gemini 3.1 Flash-Lite"
+    ],
+    "article_ids": [
+      4700,
+      4711,
+      4722,
+      4766,
+      4817,
+      5108
+    ]
+  },
+  "Gemini Embedding 2": {
+    "events": [
+      "Gemini Embedding 2"
+    ],
+    "article_ids": [
+      5700,
+      5707,
+      5729,
+      5784,
+      5913
+    ]
+  },
+  "Grok 4.20": {
+    "events": [
+      "Grok 4.20"
+    ],
+    "article_ids": [
+      6092,
+      6126
+    ]
+  },
+  "LongCat-Flash-Prover": {
+    "events": [
+      "LongCat-Flash-Prover"
+    ],
+    "article_ids": [
+      7311,
+      7515
+    ]
+  },
+  "MAI-Image-2": {
+    "events": [
+      "MAI-Image-2"
+    ],
+    "article_ids": [
+      7045
+    ]
+  },
+  "MiMo": {
+    "events": [
+      "MiMo",
+      "MiMo-V2",
+      "MiMo-V2-Pro",
+      "MiMo-V2-TTS"
+    ],
+    "article_ids": [
+      7310,
+      6900,
+      6911,
+      6858,
+      7029,
+      7313,
+      6844,
+      6845
+    ]
+  },
+  "Midjourney V8": {
+    "events": [
+      "Midjourney V8"
+    ],
+    "article_ids": [
+      6889
+    ]
+  },
+  "MiniMax M2.7": {
+    "events": [
+      "MiniMax M2.7"
+    ],
+    "article_ids": [
+      6713,
+      6767,
+      6793,
+      6857,
+      7504
+    ]
+  },
+  "Mistral Small 4": {
+    "events": [
+      "Mistral Small 4"
+    ],
+    "article_ids": [
+      6457,
+      6552,
+      7099
+    ]
+  },
+  "Nemotron 3": {
+    "events": [
+      "Nemotron 3",
+      "Nemotron 3 Super"
+    ],
+    "article_ids": [
+      6465,
+      5924,
+      5936,
+      5955
+    ]
+  },
+  "Qwen3.5": {
+    "events": [
+      "Qwen3.5",
+      "Qwen3.5-Max-Preview"
+    ],
+    "article_ids": [
+      4407,
+      4530,
+      4537,
+      4546,
+      4599,
+      4614,
+      4630,
+      5323,
+      7034,
+      7049,
+      7056
+    ]
+  },
+  "Seedance 2.0": {
+    "events": [
+      "Seedance 2.0"
+    ],
+    "article_ids": [
+      7344,
+      7512,
+      7544
+    ]
+  },
+  "SkyReels V4": {
+    "events": [
+      "SkyReels V4"
+    ],
+    "article_ids": [
+      6886,
+      6922,
+      7138
+    ]
+  },
+  "Vidu Q3": {
+    "events": [
+      "Vidu Q3"
+    ],
+    "article_ids": [
+      7149
+    ]
+  }
+}

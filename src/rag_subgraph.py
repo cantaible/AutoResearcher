@@ -97,7 +97,7 @@ async def _run_single_rag_query(sub_query: dict) -> str:
             "start_date": sub_query.get("start_date", ""),
             "end_date": sub_query.get("end_date", ""),
             "category": sub_query.get("category", ""),
-            "top_k": 10,
+            "top_k": 20,
         },
     )
     return result
