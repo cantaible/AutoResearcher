@@ -296,9 +296,25 @@ def rag_search(query: str, days: int = 0, category: str = "",
 
     formatted_output = "\n".join(output)
 
+    # 构建原始文章列表（用于 evidence_pool）
+    articles = []
+    for item in reranked:
+        meta = item["metadata"]
+        doc = item.get("doc", "")
+        articles.append({
+            "id": meta.get("article_id"),
+            "title": doc.split("\n")[0] if doc else f"article_{meta.get('article_id', '?')}",
+            "content": doc,
+            "published_date": meta.get("published_date"),
+            "url": meta.get("url"),
+            "category": meta.get("category"),
+            "source_name": meta.get("source_name"),
+        })
+
     if return_details:
         return {
             "formatted_output": formatted_output,
             "retrieval_details": retrieval_details,
+            "articles": articles,  # 新增：返回原始文章列表
         }
     return formatted_output

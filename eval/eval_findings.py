@@ -71,6 +71,14 @@ def load_research_report(run_dir: Path) -> str:
         raise FileNotFoundError(f"找不到 compressed.md 或 report.md")
 
 
+def load_evidence_pool(run_dir: Path) -> list[dict]:
+    """从运行目录加载证据池（如果存在）"""
+    evidence_file = run_dir / "evidence_pool.json"
+    if not evidence_file.exists():
+        return []
+    return json.loads(evidence_file.read_text(encoding="utf-8"))
+
+
 # ── 指标计算 ──
 
 def compute_finding_metrics(
@@ -266,14 +274,22 @@ async def main():
         sys.exit(1)
 
     # 抽取 findings
-    print(f"\n[4/5] 抽取 findings...")
+    print(f"\n[4/6] 抽取 findings...")
     findings = await extract_findings(research_report)
     print(f"  ✓ 抽取到 {len(findings)} 个 findings")
 
+    # 加载 evidence_pool（如果存在）
+    print(f"\n[5/6] 加载 evidence_pool...")
+    evidence_pool = load_evidence_pool(run_dir)
+    if evidence_pool:
+        print(f"  ✓ 加载 {len(evidence_pool)} 条证据")
+    else:
+        print(f"  ⚠️  未找到 evidence_pool.json，将使用推断策略")
+
     # 匹配 findings
-    print(f"\n[5/5] 匹配 findings 与 ground truth...")
+    print(f"\n[6/6] 匹配 findings 与 ground truth...")
     matches = match_findings(findings, labels_dict, event_index)
-    matches = compute_evidence_support(matches, labels_dict, event_index)
+    matches = compute_evidence_support(matches, labels_dict, event_index, evidence_pool)
     print(f"  ✓ 匹配完成")
 
     # 计算指标

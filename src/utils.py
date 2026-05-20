@@ -4,9 +4,11 @@
 MCP 相关功能暂以 stub 形式保留。
 """
 
+import hashlib
 import os
 from datetime import datetime
 from typing import Annotated, Any, Literal
+from urllib.parse import urlparse
 
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolArg, tool
@@ -329,3 +331,42 @@ def anthropic_websearch_called(message) -> bool:
         isinstance(block, dict) and block.get("type") == "web_search_tool_result"
         for block in message.content
     )
+
+
+##########################
+# Evidence Pool 工具
+##########################
+
+def generate_evidence_id(evidence: dict) -> str:
+    """生成唯一 ID。"""
+    source = evidence.get("source")
+
+    if source == "rag":
+        article_id = evidence.get("article_id")
+        return f"rag_{article_id}"
+
+    elif source == "web_search":
+        url = evidence.get("url", "")
+        parsed = urlparse(url)
+        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        url_hash = hashlib.md5(clean_url.encode()).hexdigest()[:8]
+        return f"web_{url_hash}"
+
+    else:
+        content = evidence.get("content", "")
+        content_hash = hashlib.md5(content.encode()).hexdigest()[:8]
+        return f"unknown_{content_hash}"
+
+
+def deduplicate_evidence(evidence_list: list[dict]) -> list[dict]:
+    """基于唯一 ID 去重，保留最早添加的。"""
+    seen = {}
+    for item in evidence_list:
+        if "id" not in item:
+            item["id"] = generate_evidence_id(item)
+
+        item_id = item["id"]
+        if item_id not in seen:
+            seen[item_id] = item
+
+    return list(seen.values())

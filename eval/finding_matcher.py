@@ -171,40 +171,52 @@ def compute_evidence_support(
     matches: list[FindingMatch],
     labels_dict: dict,
     event_index: dict,
+    evidence_pool: list[dict] | None = None,
 ) -> list[FindingMatch]:
     """计算每个 finding 的证据支撑情况。
 
-    通过文本匹配推断哪些文章支撑了该 finding，
-    然后检查这些文章是否在 gold_evidence 中。
+    优先使用 evidence_pool（实际引用的文章），
+    如果没有则回退到推断策略（该事件的所有文章）。
 
     Args:
         matches: 匹配结果列表
         labels_dict: article_id -> label 的映射
         event_index: article_id -> canonical_name 的映射
+        evidence_pool: 运行时实际引用的文章列表（可选）
 
     Returns:
         更新后的匹配结果列表
     """
+    # 构建 evidence_pool 的快速查找索引（article_id -> evidence）
+    evidence_by_article = {}
+    if evidence_pool:
+        for evidence in evidence_pool:
+            if evidence.get("source") == "rag" and evidence.get("article_id"):
+                article_id = evidence["article_id"]
+                evidence_by_article[article_id] = evidence
+
     for match in matches:
         if not match.matched_event:
             continue
 
-        # 获取该事件的所有文章
-        event_articles = [
+        # 该事件的所有文章即为 gold evidence
+        gold_article_ids = set(
             int(aid) for aid, cname in event_index.items()
             if cname == match.matched_event
-        ]
+        )
 
-        # 获取 gold_evidence
-        gold_evidence = set()
-        for article_id in event_articles:
-            if article_id in labels_dict:
-                gold_evidence.update(labels_dict[article_id].get("gold_evidence", []))
-
-        # 简单策略：假设所有事件文章都是证据
-        # （更精确的方法需要文本匹配，但这里简化处理）
-        match.evidence_article_ids = event_articles
-        match.evidence_in_gold = len(set(event_articles) & gold_evidence)
+        # 策略1：如果有 evidence_pool，使用实际引用的文章
+        if evidence_by_article:
+            cited_articles = [
+                aid for aid in gold_article_ids
+                if aid in evidence_by_article
+            ]
+            match.evidence_article_ids = cited_articles
+            match.evidence_in_gold = len(cited_articles)
+        else:
+            # 策略2：回退到推断（假设所有事件文章都被引用）
+            match.evidence_article_ids = list(gold_article_ids)
+            match.evidence_in_gold = len(gold_article_ids)
 
     return matches
 

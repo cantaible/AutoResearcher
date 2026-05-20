@@ -48,6 +48,17 @@ def save_retrieval_details(run_dir: Path, details: list):
         json.dump(details, f, ensure_ascii=False, indent=2)
 
 
+def save_evidence_pool(run_dir: Path, evidence_pool: list):
+    """保存证据池到 evidence_pool.json（去重后）。"""
+    from utils import deduplicate_evidence
+
+    # 去重（保险措施，虽然 supervisor 已经去重过）
+    evidence_pool = deduplicate_evidence(evidence_pool)
+
+    with open(run_dir / "evidence_pool.json", "w", encoding="utf-8") as f:
+        json.dump(evidence_pool, f, ensure_ascii=False, indent=2)
+
+
 def normalize_event(raw: dict) -> dict | None:
     """将 astream_events v2 事件标准化为 TUI 可消费的格式。
 
@@ -160,11 +171,14 @@ async def run_research(
             result = state.values
             final_report = result.get("final_report", "")
             retrieval_details = result.get("retrieval_details", [])
+            evidence_pool = result.get("evidence_pool", [])
 
             if final_report:
                 save_report(run_dir, final_report)
                 if retrieval_details:
                     save_retrieval_details(run_dir, retrieval_details)
+                if evidence_pool:
+                    save_evidence_pool(run_dir, evidence_pool)
                 await on_event({"type": "report", "content": final_report,
                                 "ts": datetime.now().isoformat()})
                 break

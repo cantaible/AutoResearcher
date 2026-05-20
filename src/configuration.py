@@ -65,22 +65,22 @@ class Configuration(BaseModel):
     #
     # Tier 1 - Simple（廉价打杂）：
     #   用于澄清判断、研究简报、压缩摘要、LATS expand/aggregate 等简单任务
-    simple_model: str = "openai:gpt-4.1-mini"
+    simple_model: str = "openai:gpt-5.4-mini-ca"
     simple_model_max_tokens: int = 8192
     #
     # Tier 2 - Medium（中等难度写作）：
     #   用于最终报告生成，可挂载最擅长长文结构化写作的模型
-    medium_model: str = "openai:gpt-5.4"
-    medium_model_max_tokens: int = 10000
+    medium_model: str = "openai:gpt-5.4-ca"
+    medium_model_max_tokens: int = 16000
     #
     # Tier 3 - Hard（核心推理）：
     #   用于 Supervisor 决策、Researcher ReAct 工具调用、LATS evaluate 评估
-    hard_model: str = "openai:gpt-5.4"
-    hard_model_max_tokens: int = 10000
+    hard_model: str = "openai:gpt-5.4-ca"
+    hard_model_max_tokens: int = 16000
     #
     # ── 可独立覆盖的特化模型（默认跟随所属层级） ──
     # 摘要模型：用于汇总 Tavily 搜索结果的网页内容
-    summarization_model: str = "openai:gpt-4.1-mini"
+    summarization_model: str = "openai:gpt-5.4-mini"
     summarization_model_max_tokens: int = 8192
     # 网页内容最大字符数，超过此长度会被截断后再摘要
     max_content_length: int = 50000

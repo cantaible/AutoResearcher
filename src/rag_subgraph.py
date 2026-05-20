@@ -141,6 +141,7 @@ async def execute(state: RAGExecuteState, config) -> dict:
 
     all_results = []
     all_retrieval_details = []  # 收集所有轮次的检索详情
+    all_evidence_items = []  # 收集所有轮次的证据条目
     current_query = sub_query["query"]
 
     for attempt in range(max_retries + 1):
@@ -153,6 +154,27 @@ async def execute(state: RAGExecuteState, config) -> dict:
             retrieval_details = result.get("retrieval_details")
             if retrieval_details:
                 all_retrieval_details.append(retrieval_details)
+
+            # 提取原始文章列表，构建 evidence_pool
+            articles = result.get("articles", [])
+            if articles:
+                from datetime import datetime
+                from utils import generate_evidence_id
+
+                for article in articles:
+                    evidence = {
+                        "source": "rag",
+                        "article_id": article.get("id"),
+                        "url": article.get("url"),
+                        "title": article.get("title", ""),
+                        "content": article.get("content", ""),
+                        "published_date": article.get("published_date"),
+                        "used_by_node": "rag_researcher",
+                        "query": current_query,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    evidence["id"] = generate_evidence_id(evidence)
+                    all_evidence_items.append(evidence)
         else:
             formatted_output = result
 
@@ -182,10 +204,16 @@ async def execute(state: RAGExecuteState, config) -> dict:
         print(f"  🔄 RAG retry: {evaluation.reason} → {current_query}")
 
     combined = "\n\n".join(all_results)
+
+    # 去重 evidence_pool（同一篇文章可能在多轮中重复出现）
+    from utils import deduplicate_evidence
+    all_evidence_items = deduplicate_evidence(all_evidence_items)
+
     return {
         "raw_results": [f"--- 查询: {sub_query['query']} ---\n{combined}"],
         "raw_notes": [f"[RAG] {sub_query['query']}"],
         "retrieval_details": all_retrieval_details,  # 返回所有轮次的检索详情
+        "evidence_pool": all_evidence_items,  # 返回结构化证据
     }
 
 
@@ -196,7 +224,8 @@ RAG_COMPRESS_PROMPT = """你是一个研究结果整合助手。将多个查询�
 1. 保留所有发现的信息，不要遗漏（去重将在后续步骤统一处理）
 2. 保留关键细节：名称、日期、厂商、性能指标
 3. 按时间或主题组织，结构清晰
-4. 输出为纯文本摘要"""
+4. 输出为纯文本摘要
+5. 【重要】引用信息时必须保留文章来源标记，格式为 [article:ID]（ID 为搜索结果中的 ArticleID 数字）。每条事实至少标注一个来源。示例：OpenAI 发布了 GPT-5.4 [article:5045]，支持100万Token上下文 [article:5053]。"""
 
 
 async def compress(state: RAGResearcherState, config) -> dict:

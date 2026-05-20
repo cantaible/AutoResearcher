@@ -8,10 +8,7 @@ from config import RERANKER_MAX_LENGTH, RERANKER_MODEL
 
 
 def get_reranker_device() -> str:
-    if torch.backends.mps.is_available():
-        return "mps"
-    if torch.cuda.is_available():
-        return "cuda"
+    # 强制 CPU：MPS 在 asyncio 并发 rerank 时会 segfault
     return "cpu"
 
 

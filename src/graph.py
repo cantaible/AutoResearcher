@@ -292,6 +292,7 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
             update={
                 "notes": get_notes_from_tool_calls(supervisor_messages),
                 "research_brief": state.get("research_brief", ""),
+                "evidence_pool": state.get("evidence_pool", []),  # 传递 evidence_pool 到主图
             }
         )
 
@@ -349,6 +350,15 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
             if raw_notes_concat:
                 update_payload["raw_notes"] = [raw_notes_concat]
 
+            # 汇总所有 researcher 的 evidence_pool（去重）
+            from utils import deduplicate_evidence
+            all_evidence = []
+            for obs in tool_results:
+                all_evidence.extend(obs.get("evidence_pool", []))
+            all_evidence = deduplicate_evidence(all_evidence)
+            if all_evidence:
+                update_payload["evidence_pool"] = all_evidence
+
         except Exception as e:
 
             # token 超限或其他异常，直接结束研究阶段
@@ -382,6 +392,15 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
                 rag_notes = obs.get("raw_notes", [])
                 if rag_notes:
                     update_payload.setdefault("raw_notes", []).extend(rag_notes)
+
+            # 汇总 RAG 子图的 evidence_pool（去重）
+            from utils import deduplicate_evidence
+            rag_evidence = []
+            for obs in rag_results:
+                rag_evidence.extend(obs.get("evidence_pool", []))
+            rag_evidence = deduplicate_evidence(rag_evidence)
+            if rag_evidence:
+                update_payload.setdefault("evidence_pool", []).extend(rag_evidence)
         except Exception as e:
             for tc in rag_calls:
                 all_tool_messages.append(ToolMessage(
@@ -546,12 +565,31 @@ async def final_report_generation(state: AgentState, config: RunnableConfig):
     current_retry = 0
     findings_token_limit = None
 
+    # 构建 evidence_pool 摘要，供报告引用
+    evidence_pool = state.get("evidence_pool", [])
+    if evidence_pool:
+        evidence_lines = []
+        seen_ids = set()
+        for ev in evidence_pool:
+            aid = ev.get("article_id")
+            if aid and aid not in seen_ids:
+                seen_ids.add(aid)
+                title = ev.get("title", "未知标题")
+                evidence_lines.append(f"[article:{aid}] {title}")
+        evidence_summary = "\n".join(evidence_lines)
+    else:
+        evidence_summary = ""
+
     while current_retry <= max_retries:
         try:
+            evidence_section = (
+                f"\n\n<Evidence Pool>\n以下是可引用的文章列表，请使用 [article:ID] 格式引用：\n{evidence_summary}\n</Evidence Pool>"
+                if evidence_summary else ""
+            )
             prompt = final_report_generation_prompt.format(
                 research_brief=state.get("research_brief", ""),
                 messages=get_buffer_string(state.get("messages", [])),
-                findings=findings,
+                findings=findings + evidence_section,
                 date=get_today_str()
             )
             final_report = await configurable_model.with_config(writer_config).ainvoke(

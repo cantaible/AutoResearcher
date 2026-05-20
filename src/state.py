@@ -182,6 +182,8 @@ class AgentState(MessagesState):
     notes: Annotated[list[str], override_reducer] = []
     # 最终生成的研究报告
     final_report: str
+    # 证据池：汇总所有 Researcher 的结构化证据（传递给 Writer 和评测）
+    evidence_pool: Annotated[list[dict], operator.add] = []
 
 class SupervisorState(TypedDict):
     """Supervisor 子图状态，管理研究任务的分配和协调。
@@ -199,6 +201,8 @@ class SupervisorState(TypedDict):
     research_iterations: int = 0
     # 原始笔记，从 Researcher 子图汇总上来
     raw_notes: Annotated[list[str], override_reducer] = []
+    # 证据池：汇总所有 Researcher 的结构化证据（传递给主图）
+    evidence_pool: Annotated[list[dict], operator.add] = []
 
 class ResearcherState(TypedDict):
     """Researcher 子图状态，执行具体的研究任务。
@@ -217,6 +221,8 @@ class ResearcherState(TypedDict):
     compressed_research: str
     # 原始笔记（工具调用的原始返回内容）
     raw_notes: Annotated[list[str], override_reducer] = []
+    # 证据池：结构化保存检索到的原始文章元数据（用于评测和证据追溯）
+    evidence_pool: Annotated[list[dict], operator.add] = []
 
 class ResearcherOutputState(BaseModel):
     """Researcher 子图的输出状态（状态隔离的关键）。
@@ -232,6 +238,8 @@ class ResearcherOutputState(BaseModel):
     compressed_research: str
     # 原始笔记，用于备份和调试
     raw_notes: Annotated[list[str], override_reducer] = []
+    # 证据池：结构化保存检索到的原始文章元数据（传递给 Supervisor）
+    evidence_pool: Annotated[list[dict], operator.add] = []
 
 class RAGResearcherState(TypedDict):
     """RAG 子图状态（Plan → 并行 Execute → Compress）。
@@ -252,6 +260,8 @@ class RAGResearcherState(TypedDict):
     raw_notes: Annotated[list[str], override_reducer]
     # 检索详情（用于评测，记录 dense/sparse/merged/reranked 各阶段数据）
     retrieval_details: Annotated[list[dict], operator.add]
+    # 证据池：结构化保存检索到的原始文章元数据（用于评测和证据追溯）
+    evidence_pool: Annotated[list[dict], operator.add]
 
 class RAGExecuteState(TypedDict):
     """单个 RAG execute 节点的状态，由 Send 分发。"""
@@ -264,4 +274,6 @@ class RAGExecuteState(TypedDict):
     raw_notes: Annotated[list[str], override_reducer]
     # 检索详情（用于评测）
     retrieval_details: Annotated[list[dict], operator.add]
+    # 证据池：结构化保存检索到的原始文章元数据（用于评测和证据追溯）
+    evidence_pool: Annotated[list[dict], operator.add]
 
