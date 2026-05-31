@@ -30,3 +30,6 @@ logs/
 
 # 批量实验结果
 experiments/results/
+
+# 本地论文资料
+/AutoMetrics Approximate Human Judgements with Automatically Generated Evaluators.pdf

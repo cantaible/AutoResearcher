@@ -61,3 +61,8 @@
 - [x] eval/EXPERIMENT_REPORT_V1_V7.md（v1-v7 实验结果汇总报告）
 - [x] eval/eval_full_pipeline.py（RAG 全链路分阶段评测：Plan/Dense/Sparse/Merge/Rerank/Compress/Supervisor）
 - [x] eval/FULL_PIPELINE_EVAL_REVIEW_20260531.md（全链路评测改造复盘）
+- [x] eval/eval_four_nodes.py（RAG 四节点评测：Query Rewrite/Dense/BM25/Rerank）
+- [x] eval/RAG子图四节点评估精简报告_20260531.md（RAG 子图四节点评估精简报告）
+- [x] rag/reranker.py（Rerank TopK 内事件多样性重排，验证 Top30 指标提升）
+- [x] rag/reranker.py（按业务原版 rubric 增加 hybrid_score：impact/prominence/heat/controversy/source penalty）
+- [x] rag/rag_search.py（并发 execute 下 embedding encode 加锁，避免 tokenizer Already borrowed）

@@ -87,7 +87,7 @@ def route_plan(state: RAGResearcherState) -> list[Send]:
     ]
 
 
-async def _run_single_rag_query(sub_query: dict) -> str | dict:
+async def _run_single_rag_query(sub_query: dict, top_k: int = 20) -> str | dict:
     """在线程池中执行单个 RAG 查询。
 
     返回 str（默认）或 dict（当需要检索详情时）。
@@ -100,7 +100,7 @@ async def _run_single_rag_query(sub_query: dict) -> str | dict:
             "start_date": sub_query.get("start_date", ""),
             "end_date": sub_query.get("end_date", ""),
             "category": sub_query.get("category", ""),
-            "top_k": 20,
+            "top_k": top_k,
             "return_details": True,  # 启用检索详情记录
         },
     )
@@ -146,7 +146,10 @@ async def execute(state: RAGExecuteState, config) -> dict:
 
     for attempt in range(max_retries + 1):
         # 1. 执行搜索
-        result = await _run_single_rag_query({**sub_query, "query": current_query})
+        result = await _run_single_rag_query(
+            {**sub_query, "query": current_query},
+            top_k=configurable.rag_top_k,
+        )
 
         # 处理返回结果（可能是 str 或 dict）
         if isinstance(result, dict):
@@ -218,14 +221,39 @@ async def execute(state: RAGExecuteState, config) -> dict:
 
 
 # ── Compress 阶段的系统提示 ──
-RAG_COMPRESS_PROMPT = """你是一个研究结果整合助手。将多个查询的搜索结果合并为一份结构化的研究摘要。
+RAG_COMPRESS_PROMPT = """你是一个 RAG 证据保全与事件整理助手。你的目标不是写最终报告，而是把搜索结果中所有可能相关的模型发布事件完整保留下来，供后续 Writer 使用。
 
-要求：
-1. 保留所有发现的信息，不要遗漏（去重将在后续步骤统一处理）
-2. 保留关键细节：名称、日期、厂商、性能指标
-3. 按时间或主题组织，结构清晰
-4. 输出为纯文本摘要
-5. 【重要】引用信息时必须保留文章来源标记，格式为 [article:ID]（ID 为搜索结果中的 ArticleID 数字）。每条事实至少标注一个来源。示例：OpenAI 发布了 GPT-5.4 [article:5045]，支持100万Token上下文 [article:5053]。"""
+核心原则：
+1. 宁可多保留，不要漏掉。只要搜索结果中出现“发布、推出、上线、开源、预览版、Beta、模型家族、released、launched、introduced、open-weight”等表述，并且涉及模型名称或模型能力，就必须列入候选事件。
+2. 不要因为厂商不够头部、证据较弱、事件小众、属于图像/视频/语音/代码/embedding/agent 模型就删除。低置信事件放入“待核验/低置信候选”，也不能直接丢弃。
+3. 每个模型或模型家族必须单独成条，不要合并成“多家公司发布了若干模型”这种概括句。
+4. 每条事实必须保留文章来源标记，格式为 [article:ID]（ID 为搜索结果中的 ArticleID 数字）。没有 article 引用的事实不要写。
+5. 保留关键细节：厂商、模型名称、发布日期/新闻日期、模型类型、发布状态、参数/能力/benchmark/应用场景。
+6. 如果多篇文章支持同一事件，保留多个 [article:ID]；如果不同文章互相矛盾，明确标为“待核验”。
+
+请严格按以下结构输出：
+
+## 高置信模型发布事件
+逐条列出证据充分、明确属于 2026 年 3 月模型发布/推出/开源/上线的事件。每条格式：
+- 事件：厂商 - 模型名
+  - 日期：
+  - 类型：
+  - 发布状态：
+  - 关键事实：
+  - 证据：[article:ID] [article:ID]
+
+## 待核验/低置信候选
+逐条列出可能是模型发布，但证据不完整、时间不明确、或可能只是版本更新/生态接入/评测解读的事件。不要省略小众模型。
+
+## 明确非发布或排除项
+列出和主题相关但不应计入“新模型发布”的内容，例如行业新闻、融资、评测、旧模型解读、应用产品发布等。
+
+## 覆盖检查
+- 写出你最终保留了多少个候选事件。
+- 写出仍可能遗漏的方向。
+- 写出本摘要中实际使用过的 ArticleID 列表。
+
+再次强调：这是给后续报告生成器看的证据账本，不是面向用户的精简摘要。不要为了简洁而删除候选事件。"""
 
 
 async def compress(state: RAGResearcherState, config) -> dict:
@@ -265,4 +293,3 @@ rag_researcher_builder.add_edge(START, "plan")
 rag_researcher_builder.add_conditional_edges("plan", route_plan, ["execute", "compress"])
 rag_researcher_builder.add_edge("execute", "compress")
 rag_researcher_builder.add_edge("compress", END)
-

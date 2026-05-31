@@ -2,6 +2,7 @@
 import os
 import sys
 import time
+import threading
 from pathlib import Path
 
 import chromadb
@@ -20,11 +21,12 @@ from config import (
     VECTORDB_DIR,
 )
 from opensearch_search import OpenSearchUnavailableError, opensearch_search
-from reranker import rerank_candidates
+from reranker import rerank_with_clusters
 
 _collection = None
 _embedding_model = None
 _init_lock = __import__("threading").Lock()
+_embedding_encode_lock = threading.Lock()
 
 
 def _force_hf_offline() -> None:
@@ -53,18 +55,18 @@ def get_embedding_model():
                 _embedding_model = SentenceTransformer(
                     EMBEDDING_MODEL,
                     device="cpu",
-                    local_files_only=True,
-                    tokenizer_kwargs={"local_files_only": True},
-                    config_kwargs={"local_files_only": True},
                 )
     return _embedding_model
 
 
 def embed_query(query: str) -> list[float]:
-    embedding = get_embedding_model().encode(
-        query,
-        normalize_embeddings=True,
-    )
+    # SentenceTransformer fast tokenizer 在多线程 execute 下不是完全可重入；
+    # 串行化单条 query encode，避免 tokenizers 的 Already borrowed 运行时错误。
+    with _embedding_encode_lock:
+        embedding = get_embedding_model().encode(
+            query,
+            normalize_embeddings=True,
+        )
     return embedding.tolist()
 
 
@@ -206,7 +208,7 @@ def rag_search(query: str, days: int = 0, category: str = "",
     )
 
     candidates = _collect_candidates(vec, lexical_hits)
-    reranked = rerank_candidates(query, candidates)[:top_k]
+    reranked = rerank_with_clusters(query, candidates, top_k)
 
     # 记录检索详情（用于评测）
     retrieval_details = None

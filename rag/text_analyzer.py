@@ -4,7 +4,12 @@ import unicodedata
 from functools import lru_cache
 from pathlib import Path
 
-import pkuseg
+try:
+    import pkuseg
+    _PKUSEG_AVAILABLE = True
+except ImportError:
+    pkuseg = None  # type: ignore
+    _PKUSEG_AVAILABLE = False
 
 RAG_DIR = Path(__file__).parent
 STOPWORDS_PATH = RAG_DIR / "resources" / "bm25_stopwords_zh.txt"
@@ -67,6 +72,8 @@ def load_stopwords() -> set[str]:
 @lru_cache(maxsize=1)
 def load_segmenter():
     """延迟加载 pkuseg，避免模块导入时就初始化模型。"""
+    if not _PKUSEG_AVAILABLE:
+        raise RuntimeError("pkuseg 不可用，请安装: pip install pkuseg")
     return pkuseg.pkuseg()
 
 
@@ -190,6 +197,29 @@ def _is_noise_token(token: str, stopwords: set[str]) -> bool:
     return False
 
 
+def _cjk_fallback_segment(text: str) -> list[str]:
+    """pkuseg 不可用时的简单中文分词：2-gram + 单字。"""
+    cjk = re.compile(r"[一-鿿]+")
+    tokens = []
+    pos = 0
+    for match in cjk.finditer(text):
+        # 非中文部分按空白切
+        if match.start() > pos:
+            prefix = text[pos:match.start()]
+            tokens.extend(prefix.split())
+        segment = match.group()
+        if len(segment) == 1:
+            tokens.append(segment)
+        else:
+            tokens.append(segment)
+            for i in range(len(segment) - 1):
+                tokens.append(segment[i:i + 2])
+        pos = match.end()
+    if pos < len(text):
+        tokens.extend(text[pos:].split())
+    return tokens
+
+
 def analyze_text(text: str) -> list[str]:
     """产出适合 BM25 的 token 序列。"""
     normalized = normalize_text(text)
@@ -208,6 +238,9 @@ def analyze_text(text: str) -> list[str]:
     tokens.extend(ASCII_WORD_RE.findall(masked_for_ascii))
 
     masked_for_cjk = _mask_patterns(masked_for_ascii, [ASCII_WORD_RE, NUMBER_TOKEN_RE])
-    tokens.extend(load_segmenter().cut(masked_for_cjk))
+    if _PKUSEG_AVAILABLE:
+        tokens.extend(load_segmenter().cut(masked_for_cjk))
+    else:
+        tokens.extend(_cjk_fallback_segment(masked_for_cjk))
 
     return [token for token in tokens if not _is_noise_token(token.strip(), stopwords)]

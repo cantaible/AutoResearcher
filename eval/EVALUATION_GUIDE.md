@@ -10,6 +10,7 @@ AutoResearcher 的评测分为三个层级：
 
 | 层级 | 评测对象 | 核心指标 | 脚本 |
 |------|---------|---------|------|
+| **Layer 0: RAG 四节点评测** | Plan/Query Rewrite → Dense/Chroma → BM25/OpenSearch → Rerank | Query/Rerank Rubric Score、Dense/BM25 Macro Recall、Precision、F1 | `eval_four_nodes.py` |
 | **Layer 1: RAG 分阶段评测** | Plan → Dense/Sparse → Merge → Rerank → Compress → Supervisor | Plan 覆盖率、Event Recall、Rerank Retention、Compression Retention、Handoff Retention | `eval_full_pipeline.py` |
 | **Layer 2: RAG 检索评测** | RAG 子图的检索质量 | Event Recall, Article Recall, 双路召回贡献 | `eval_rag_retrieval.py` |
 | **Layer 3: Finding 评测** | 从报告中抽取事件的准确性 | Finding Recall, Precision, F1, Evidence Support Rate | `eval_findings.py` |
@@ -50,6 +51,51 @@ python eval/prepare_ground_truth.py --no-db
 ---
 
 ## 评测流程
+
+### 阶段 0：RAG 四节点评测
+
+**目标**：只评估当前 RAG 子图关键链路：Plan/Query Rewrite、向量检索、BM25/OpenSearch 检索、Rerank。
+
+#### 0.1 运行评测
+
+```bash
+python eval/eval_four_nodes.py --run-dir logs/<your-run-dir>
+```
+
+如果已经有业务访谈或聊天记录，可以让脚本用当前 OpenAI 兼容接口合成业务 rubric：
+
+```bash
+python eval/eval_four_nodes.py \
+  --run-dir logs/<your-run-dir> \
+  --business-context-path docs/business_interview.md \
+  --synthesize-rubrics
+```
+
+如果希望 Query Rewrite 和 Rerank 都由 LLM 按 rubric 自动打分：
+
+```bash
+python eval/eval_four_nodes.py \
+  --run-dir logs/<your-run-dir> \
+  --rubric-path logs/<your-run-dir>/four_node_rubrics.json \
+  --judge-with-llm
+```
+
+该命令会写入：
+
+| 文件 | 说明 |
+|------|------|
+| `FOUR_NODE_EVAL_REPORT.md` | 四节点评估报告 |
+| `four_node_metrics.json` | 四节点指标 JSON |
+| `four_node_rubrics.json` | 本次实际使用的 rubric；指定 `--synthesize-rubrics` 时会由大模型从业务访谈合成 |
+
+#### 0.2 指标口径
+
+| 节点 | 主指标 | 辅助指标 | 说明 |
+|------|------|------|------|
+| Plan/Query Rewrite | Rubric Score | Recall Proxy、Precision Proxy、F1 Proxy、重复率、rerank 弱反馈 | 无硬真值时，用业务维度覆盖度近似 recall，用约束准确率与去重近似 precision |
+| Dense/Chroma | Macro Event Recall | Article Precision、Article Recall、Article F1、Union Event Recall | 每个 execute 先按当前 query 匹配对应 GT 子集，再单独评估后取平均；union 只做整体覆盖诊断 |
+| BM25/OpenSearch | Macro Event Recall | Article Precision、Article Recall、Article F1、Union Event Recall | 每个 execute 先按当前 query 匹配对应 GT 子集，再单独评估后取平均；union 只做整体覆盖诊断 |
+| Rerank | Rubric Score | Macro Event Retention、Lost Events、NDCG@K | 每个 execute 都会 rerank；参考指标同样使用当前 query 的 GT 子集，union 只做诊断 |
 
 ### 阶段 1：RAG 全链路分阶段评测
 

@@ -60,6 +60,8 @@ class Configuration(BaseModel):
     max_react_tool_calls: int = 10
     # RAG execute 节点每个子查询的最大重试次数（0=不重试，只搜一次）
     max_rag_retries: int = 2
+    # RAG 每个子查询经过 rerank 后保留的文章数。月报场景优先召回，默认略高于旧值 20。
+    rag_top_k: int = 30
 
     # ── 模型配置（三层分级） ──
     #
@@ -122,4 +124,3 @@ class Configuration(BaseModel):
             for field_name in field_names
         }
         return cls(**{k: v for k, v in values.items() if v is not None})
-

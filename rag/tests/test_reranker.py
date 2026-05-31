@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from bm25_search import bm25_search
 from config import RETRIEVAL_CANDIDATE_MULTIPLIER
 from rag_search import _collect_candidates, embed_query, get_collection
-from reranker import rerank_candidates
+from reranker import rerank_and_select_candidates
 
 
 def main():
@@ -61,7 +61,7 @@ def main():
         published_ts_gte=threshold,
     )
     candidates = _collect_candidates(vec, bm25)
-    reranked = rerank_candidates(args.query, candidates)[: args.top_k]
+    reranked = rerank_and_select_candidates(args.query, candidates, args.top_k)
 
     print(f"\n{'=' * 60}")
     print("Reranker 单独测试")
