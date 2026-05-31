@@ -10,7 +10,7 @@
 >
 > - **[全链路评估](#1-总体诊断)**：Query Rewrite **89.8/100**，Dense Event Recall **80.7%**，BM25 Event Recall **74.3%**，Rerank Rubric Score **66.2/100**。核心瓶颈是”召回到了但没进 TopK”。
 > - **[优化 Rerank](#3-rerank-前去重聚类优化)**：聚类去重 + TopK 扩大后，事件保留率 **65.8% → 70.6%**，Reference Event Recall **52.6% → 58.3%**。
-> - **[探索自动 Rubric](#4-rerank-rubric-自动优化试验)**：流程已跑通，旧 run 可产出新 Rubric 报告。当前仍是可行性验证，无人工标注，未做严格 A/B。
+> - **[探索自动 Rubric](#4-rerank-rubric-自动优化试验)**：流程已跑通。但当前仍是可行性验证版本。
 
 ## 1. 总体诊断
 
