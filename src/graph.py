@@ -293,16 +293,26 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
                 "notes": get_notes_from_tool_calls(supervisor_messages),
                 "research_brief": state.get("research_brief", ""),
                 "evidence_pool": state.get("evidence_pool", []),  # 传递 evidence_pool 到主图
+                "retrieval_details": state.get("retrieval_details", []),
+                "rag_outputs": state.get("rag_outputs", []),
+                "rag_sub_queries": state.get("rag_sub_queries", []),
+                "supervisor_tool_calls": state.get("supervisor_tool_calls", []),
             }
         )
 
     # ── 处理工具调用 ──
     all_tool_messages = []
     update_payload = {"supervisor_messages": []}
+    tool_call_records = []
 
     # 1) think_tool：记录反思
     for tc in most_recent.tool_calls:
         if tc["name"] == "think_tool":
+            tool_call_records.append({
+                "name": "think_tool",
+                "args": tc.get("args", {}),
+                "status": "ok",
+            })
             all_tool_messages.append(ToolMessage(
                 content=f"反思已记录: {tc['args']['reflection']}",
                 name="think_tool",
@@ -329,6 +339,14 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
 
             # 处理研究结果
             for obs, tc in zip(tool_results, allowed_calls):
+                tool_call_records.append({
+                    "name": tc["name"],
+                    "args": tc.get("args", {}),
+                    "status": "ok",
+                    "compressed_length": len(obs.get("compressed_research", "")),
+                    "raw_notes_count": len(obs.get("raw_notes", [])),
+                    "evidence_count": len(obs.get("evidence_pool", [])),
+                })
                 all_tool_messages.append(ToolMessage(
                     content=obs.get("compressed_research", "研究报告合成错误：超过最大重试次数"),
                     name=tc["name"],
@@ -337,6 +355,11 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
             
             # 处理溢出的任务
             for tc in overflow_calls:
+                tool_call_records.append({
+                    "name": tc["name"],
+                    "args": tc.get("args", {}),
+                    "status": "skipped_overflow",
+                })
                 all_tool_messages.append(ToolMessage(
                     content=f"错误：未执行此研究，因为已超过最大并行研究单元数。请保证在 {configurable.max_concurrent_research_units} 个以内。",
                     name="ConductResearch",
@@ -368,6 +391,10 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
                     update={
                         "notes": get_notes_from_tool_calls(supervisor_messages),
                         "research_brief": state.get("research_brief", ""),
+                        "retrieval_details": state.get("retrieval_details", []),
+                        "rag_outputs": state.get("rag_outputs", []),
+                        "rag_sub_queries": state.get("rag_sub_queries", []),
+                        "supervisor_tool_calls": state.get("supervisor_tool_calls", []) + tool_call_records,
                     }
                 )
 
@@ -384,6 +411,20 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
             ]
             rag_results = await asyncio.gather(*rag_tasks)
             for obs, tc in zip(rag_results, rag_calls):
+                retrieval_details = obs.get("retrieval_details", [])
+                sub_queries = obs.get("sub_queries", [])
+                raw_results = obs.get("raw_results", [])
+                evidence_items = obs.get("evidence_pool", [])
+                tool_call_records.append({
+                    "name": tc["name"],
+                    "args": tc.get("args", {}),
+                    "status": "ok",
+                    "compressed_length": len(obs.get("compressed_research", "")),
+                    "sub_query_count": len(sub_queries),
+                    "raw_results_count": len(raw_results),
+                    "retrieval_details_count": len(retrieval_details),
+                    "evidence_count": len(evidence_items),
+                })
                 all_tool_messages.append(ToolMessage(
                     content=obs.get("compressed_research", "RAG 搜索无结果"),
                     name=tc["name"],
@@ -392,6 +433,21 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
                 rag_notes = obs.get("raw_notes", [])
                 if rag_notes:
                     update_payload.setdefault("raw_notes", []).extend(rag_notes)
+
+                if retrieval_details:
+                    update_payload.setdefault("retrieval_details", []).extend(retrieval_details)
+                if sub_queries:
+                    update_payload.setdefault("rag_sub_queries", []).extend(sub_queries)
+
+                update_payload.setdefault("rag_outputs", []).append({
+                    "research_topic": tc["args"].get("research_topic", ""),
+                    "compressed_research": obs.get("compressed_research", ""),
+                    "raw_results": raw_results,
+                    "raw_notes": rag_notes,
+                    "sub_queries": sub_queries,
+                    "retrieval_details_count": len(retrieval_details),
+                    "evidence_count": len(evidence_items),
+                })
 
             # 汇总 RAG 子图的 evidence_pool（去重）
             from utils import deduplicate_evidence
@@ -403,6 +459,12 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
                 update_payload.setdefault("evidence_pool", []).extend(rag_evidence)
         except Exception as e:
             for tc in rag_calls:
+                tool_call_records.append({
+                    "name": tc["name"],
+                    "args": tc.get("args", {}),
+                    "status": "error",
+                    "error": str(e),
+                })
                 all_tool_messages.append(ToolMessage(
                     content=f"RAG 搜索失败: {e}",
                     name=tc["name"],
@@ -417,6 +479,8 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig):
 
     # 返回结果，继续 supervisor 循环
     update_payload["supervisor_messages"] = all_tool_messages
+    if tool_call_records:
+        update_payload["supervisor_tool_calls"] = tool_call_records
     return Command(goto="supervisor", update=update_payload)
 
 
@@ -598,6 +662,7 @@ async def final_report_generation(state: AgentState, config: RunnableConfig):
             return {
                 "final_report": final_report.content,
                 "messages": [final_report],
+                "final_report_notes": {"type": "override", "value": notes},
                 **cleared_state
             }
         except Exception as e:

@@ -90,9 +90,10 @@ def get_extractor_model():
         )
 
     model = ChatOpenAI(
-        model="gpt-4o-mini",  # 使用 mini 模型降低成本
+        model=os.getenv("FINDING_EXTRACTOR_MODEL", "gpt-4o-mini"),  # 使用 mini 模型降低成本
         temperature=0,
         api_key=api_key,
+        base_url=os.getenv("OPENAI_BASE_URL") or None,
     )
 
     return model.with_structured_output(FindingExtractionResult)

@@ -1,6 +1,10 @@
 """本地 reranker：对候选文档做统一重排。"""
 import os
 
+# 在导入 transformers/sentence_transformers 前设置离线模式，避免库初始化阶段探测远端。
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
 import torch
 from sentence_transformers import CrossEncoder
 

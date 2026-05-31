@@ -184,6 +184,16 @@ class AgentState(MessagesState):
     final_report: str
     # 证据池：汇总所有 Researcher 的结构化证据（传递给 Writer 和评测）
     evidence_pool: Annotated[list[dict], operator.add] = []
+    # RAG 检索详情：dense/sparse/merged/reranked 各阶段 article_id，用于端到端评测
+    retrieval_details: Annotated[list[dict], operator.add] = []
+    # RAG 子图输出快照：压缩摘要、原始结果、来源工具调用，用于压缩层与 Supervisor 交接评测
+    rag_outputs: Annotated[list[dict], operator.add] = []
+    # RAG Plan 产出的子查询，用于 Plan 评测
+    rag_sub_queries: Annotated[list[dict], operator.add] = []
+    # Supervisor 工具调用记录，用于调度层评测
+    supervisor_tool_calls: Annotated[list[dict], operator.add] = []
+    # final_report_generation 接收到的 notes 快照；notes 本身会被清空，这里单独留评测用副本
+    final_report_notes: Annotated[list[str], override_reducer] = []
 
 class SupervisorState(TypedDict):
     """Supervisor 子图状态，管理研究任务的分配和协调。
@@ -203,6 +213,14 @@ class SupervisorState(TypedDict):
     raw_notes: Annotated[list[str], override_reducer] = []
     # 证据池：汇总所有 Researcher 的结构化证据（传递给主图）
     evidence_pool: Annotated[list[dict], operator.add] = []
+    # RAG 检索详情：传递给主图落盘评测
+    retrieval_details: Annotated[list[dict], operator.add]
+    # RAG 子图输出快照
+    rag_outputs: Annotated[list[dict], operator.add]
+    # RAG Plan 子查询
+    rag_sub_queries: Annotated[list[dict], operator.add]
+    # Supervisor 工具调用记录
+    supervisor_tool_calls: Annotated[list[dict], operator.add]
 
 class ResearcherState(TypedDict):
     """Researcher 子图状态，执行具体的研究任务。
@@ -240,6 +258,12 @@ class ResearcherOutputState(BaseModel):
     raw_notes: Annotated[list[str], override_reducer] = []
     # 证据池：结构化保存检索到的原始文章元数据（传递给 Supervisor）
     evidence_pool: Annotated[list[dict], operator.add] = []
+    # RAG 子图专用：检索详情。普通 Researcher 默认为空。
+    retrieval_details: list[dict] = Field(default_factory=list)
+    # RAG 子图专用：Plan 产出的子查询。普通 Researcher 默认为空。
+    sub_queries: list[dict] = Field(default_factory=list)
+    # RAG 子图专用：execute 原始检索结果。普通 Researcher 默认为空。
+    raw_results: list[str] = Field(default_factory=list)
 
 class RAGResearcherState(TypedDict):
     """RAG 子图状态（Plan → 并行 Execute → Compress）。
@@ -276,4 +300,3 @@ class RAGExecuteState(TypedDict):
     retrieval_details: Annotated[list[dict], operator.add]
     # 证据池：结构化保存检索到的原始文章元数据（用于评测和证据追溯）
     evidence_pool: Annotated[list[dict], operator.add]
-

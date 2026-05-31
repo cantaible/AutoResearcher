@@ -59,6 +59,12 @@ def save_evidence_pool(run_dir: Path, evidence_pool: list):
         json.dump(evidence_pool, f, ensure_ascii=False, indent=2)
 
 
+def save_json_artifact(run_dir: Path, filename: str, payload: Any):
+    """保存调试/评测用 JSON 产物。"""
+    with open(run_dir / filename, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
+
+
 def normalize_event(raw: dict) -> dict | None:
     """将 astream_events v2 事件标准化为 TUI 可消费的格式。
 
@@ -172,6 +178,10 @@ async def run_research(
             final_report = result.get("final_report", "")
             retrieval_details = result.get("retrieval_details", [])
             evidence_pool = result.get("evidence_pool", [])
+            rag_outputs = result.get("rag_outputs", [])
+            rag_sub_queries = result.get("rag_sub_queries", [])
+            supervisor_tool_calls = result.get("supervisor_tool_calls", [])
+            final_report_notes = result.get("final_report_notes", [])
 
             if final_report:
                 save_report(run_dir, final_report)
@@ -179,6 +189,15 @@ async def run_research(
                     save_retrieval_details(run_dir, retrieval_details)
                 if evidence_pool:
                     save_evidence_pool(run_dir, evidence_pool)
+                if rag_outputs:
+                    save_json_artifact(run_dir, "rag_outputs.json", rag_outputs)
+                if rag_sub_queries:
+                    save_json_artifact(run_dir, "rag_sub_queries.json", rag_sub_queries)
+                    save_json_artifact(run_dir, "sub_queries.json", rag_sub_queries)
+                if supervisor_tool_calls:
+                    save_json_artifact(run_dir, "supervisor_tool_calls.json", supervisor_tool_calls)
+                if final_report_notes:
+                    save_json_artifact(run_dir, "final_report_notes.json", final_report_notes)
                 await on_event({"type": "report", "content": final_report,
                                 "ts": datetime.now().isoformat()})
                 break

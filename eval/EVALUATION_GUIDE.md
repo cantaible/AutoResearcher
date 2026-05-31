@@ -6,12 +6,13 @@
 
 ## 评测体系概览
 
-AutoResearcher 的评测分为两个层级：
+AutoResearcher 的评测分为三个层级：
 
 | 层级 | 评测对象 | 核心指标 | 脚本 |
 |------|---------|---------|------|
-| **Layer 1: RAG 检索评测** | RAG 子图的检索质量 | Event Recall, Article Recall, 双路召回贡献 | `eval_rag_retrieval.py` |
-| **Layer 2: Finding 评测** | 从报告中抽取事件的准确性 | Finding Recall, Precision, F1, Evidence Support Rate | `eval_findings.py` |
+| **Layer 1: RAG 分阶段评测** | Plan → Dense/Sparse → Merge → Rerank → Compress → Supervisor | Plan 覆盖率、Event Recall、Rerank Retention、Compression Retention、Handoff Retention | `eval_full_pipeline.py` |
+| **Layer 2: RAG 检索评测** | RAG 子图的检索质量 | Event Recall, Article Recall, 双路召回贡献 | `eval_rag_retrieval.py` |
+| **Layer 3: Finding 评测** | 从报告中抽取事件的准确性 | Finding Recall, Precision, F1, Evidence Support Rate | `eval_findings.py` |
 
 ---
 
@@ -37,15 +38,64 @@ python eval/prepare_ground_truth.py --no-db
 对于 RAG 检索评测，还需要：
 - `retrieval_details.json`（检索详情，需要新版本代码生成）
 
+对于完整主图的分阶段评测，建议运行目录包含：
+- `rag_sub_queries.json` / `sub_queries.json`
+- `retrieval_details.json`
+- `rag_outputs.json`
+- `final_report_notes.json`
+- `supervisor_tool_calls.json`
+- `evidence_pool.json`
+- `report.md`
+
 ---
 
 ## 评测流程
 
-### 阶段 1：RAG 检索评测
+### 阶段 1：RAG 全链路分阶段评测
+
+**目标**：定位信息在 Plan、检索、合并、重排、压缩、Supervisor 交接中的具体损耗。
+
+#### 1.1 运行评测
+
+```bash
+python eval/eval_full_pipeline.py --run-dir logs/<your-run-dir>
+```
+
+如果没有人工 Plan 标准答案，可以让脚本用当前 OpenAI 兼容接口合成 Plan rubric：
+
+```bash
+python eval/eval_full_pipeline.py \
+  --run-dir logs/<your-run-dir> \
+  --synthesize-plan-rubric
+```
+
+该命令会读取 `.env` 中的 `OPENAI_API_KEY` 和 `OPENAI_BASE_URL`，并在 run 目录写入：
+
+| 文件 | 说明 |
+|------|------|
+| `STAGE_EVAL_REPORT.md` | 分阶段评测报告 |
+| `stage_eval_metrics.json` | 分阶段指标 JSON |
+| `synthetic_plan_rubric.json` | 可选，大模型合成的 Plan 评测维度 |
+
+#### 1.2 核心指标
+
+| 环节 | 指标 | 含义 |
+|------|------|------|
+| Plan | coverage_rate, duplicate_rate | 子查询是否覆盖关键方向、是否重复 |
+| Dense/Sparse | Event Recall, Article Precision, NDCG@K | 单路召回效果 |
+| Merge | event_recall_gain_vs_dense/sparse | 双路合并是否带来增益 |
+| Rerank | event_retention_from_merged | 重排是否误杀已召回事件 |
+| Compress | event_retention_rate, citation_retention_rate | 压缩是否丢事件、丢引用 |
+| Supervisor | supervisor_handoff_retention | RAG 摘要是否进入最终写作上下文 |
+| Final Report | citation_whitelist_rate | 报告引用是否来自 evidence_pool |
+
+---
+
+### 阶段 2：RAG 检索评测
 
 **目标**：评估 RAG 子图在检索阶段的表现，分析 dense/sparse/merged/reranked 各阶段的召回率。
 
-#### 1.1 运行评测
+#### 2.1 运行评测
 
 ```bash
 python eval/eval_rag_retrieval.py --run-dir logs/<your-run-dir>
@@ -56,7 +106,7 @@ python eval/eval_rag_retrieval.py --run-dir logs/<your-run-dir>
 python eval/eval_rag_retrieval.py --run-dir "logs/查找2026年3月1日至3月31日期间发布的大模型相关新闻产-20260507-190148"
 ```
 
-#### 1.2 查看结果
+#### 2.2 查看结果
 
 评测完成后，会在运行目录下生成：
 
@@ -87,7 +137,7 @@ python eval/eval_rag_retrieval.py --run-dir "logs/查找2026年3月1日至3月31
 | 两路都召回 | 30 | 12 |
 ```
 
-#### 1.3 关键指标解读
+#### 2.3 关键指标解读
 
 - **Event Recall**：有多少个 ground truth 事件被检索到
   - 高 Event Recall 说明检索覆盖面广
@@ -101,7 +151,7 @@ python eval/eval_rag_retrieval.py --run-dir "logs/查找2026年3月1日至3月31
   - 重叠度高：两路检索结果相似
   - 重叠度低：两路检索互补性强
 
-#### 1.4 注意事项
+#### 2.4 注意事项
 
 ⚠️ **如果运行目录缺少 `retrieval_details.json`**：
 
@@ -113,14 +163,26 @@ python eval/eval_rag_retrieval.py --run-dir "logs/查找2026年3月1日至3月31
 
 ---
 
-### 阶段 2：Finding 评测
+### 阶段 3：Finding 评测
 
 **目标**：评估从研究报告中抽取事件的准确性，以及抽取的事件与 ground truth 的匹配度。
 
-#### 2.1 运行评测
+#### 3.1 运行评测
 
 ```bash
 python eval/eval_findings.py --run-dir logs/<your-run-dir>
+```
+
+显式评测最终报告：
+
+```bash
+python eval/eval_findings.py --run-dir logs/<your-run-dir> --target report
+```
+
+显式评测 RAG 压缩摘要：
+
+```bash
+python eval/eval_findings.py --run-dir logs/<your-run-dir> --target compressed
 ```
 
 **示例**：
@@ -128,7 +190,7 @@ python eval/eval_findings.py --run-dir logs/<your-run-dir>
 python eval/eval_findings.py --run-dir "logs/查找2026年3月1日至3月31日期间发布的大模型相关新闻产-20260507-190148"
 ```
 
-#### 2.2 查看结果
+#### 3.2 查看结果
 
 评测完成后，会在运行目录下生成：
 
@@ -172,7 +234,7 @@ python eval/eval_findings.py --run-dir "logs/查找2026年3月1日至3月31日�
 ...
 ```
 
-#### 2.3 关键指标解读
+#### 3.3 关键指标解读
 
 - **Finding Recall**：有多少个 ground truth 事件被正确识别
   - 高 Recall 说明报告覆盖全面
@@ -189,7 +251,7 @@ python eval/eval_findings.py --run-dir "logs/查找2026年3月1日至3月31日�
   - 高 Evidence Support Rate 说明 findings 有充分证据
   - 低 Evidence Support Rate 说明 findings 缺乏证据支撑
 
-#### 2.4 支持的报告格式
+#### 3.4 支持的报告格式
 
 Finding 评测支持两种报告格式：
 

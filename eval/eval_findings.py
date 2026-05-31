@@ -56,19 +56,35 @@ def load_ground_truth():
     return labels_dict, event_index, total_events
 
 
-def load_research_report(run_dir: Path) -> str:
-    """从运行目录加载研究报告（优先 compressed.md，其次 report.md）"""
+def load_research_report(run_dir: Path, target: str = "auto") -> str:
+    """从运行目录加载研究报告。
+
+    target:
+        auto: 优先 compressed.md，其次 report.md（兼容旧行为）
+        compressed: 只评 RAG 压缩摘要
+        report: 只评最终报告
+    """
     compressed_file = run_dir / "compressed.md"
     report_file = run_dir / "report.md"
+
+    if target == "compressed":
+        if not compressed_file.exists():
+            raise FileNotFoundError(f"找不到 {compressed_file}")
+        print(f"  ✓ 使用 RAG 压缩报告: compressed.md")
+        return compressed_file.read_text(encoding="utf-8")
+    if target == "report":
+        if not report_file.exists():
+            raise FileNotFoundError(f"找不到 {report_file}")
+        print(f"  ✓ 使用完整研究报告: report.md")
+        return report_file.read_text(encoding="utf-8")
 
     if compressed_file.exists():
         print(f"  ✓ 使用 RAG 压缩报告: compressed.md")
         return compressed_file.read_text(encoding="utf-8")
-    elif report_file.exists():
+    if report_file.exists():
         print(f"  ✓ 使用完整研究报告: report.md")
         return report_file.read_text(encoding="utf-8")
-    else:
-        raise FileNotFoundError(f"找不到 compressed.md 或 report.md")
+    raise FileNotFoundError(f"找不到 compressed.md 或 report.md")
 
 
 def load_evidence_pool(run_dir: Path) -> list[dict]:
@@ -238,6 +254,12 @@ async def main():
     parser = argparse.ArgumentParser(description="Finding 级别评测")
     parser.add_argument("--topic", type=str, default=DEFAULT_TOPIC, help="研究主题")
     parser.add_argument("--run-dir", type=str, default="", help="只评测已有运行结果（传入 run_dir 路径）")
+    parser.add_argument(
+        "--target",
+        choices=["auto", "compressed", "report"],
+        default="auto",
+        help="评测对象：auto=兼容旧逻辑，compressed=RAG压缩摘要，report=最终报告",
+    )
     args = parser.parse_args()
 
     print("=" * 60)
@@ -267,7 +289,7 @@ async def main():
     # 加载研究报告
     print(f"\n[3/5] 加载研究报告...")
     try:
-        research_report = load_research_report(run_dir)
+        research_report = load_research_report(run_dir, args.target)
         print(f"  ✓ 加载报告，长度: {len(research_report)} 字符")
     except FileNotFoundError as e:
         print(f"  ❌ {e}")

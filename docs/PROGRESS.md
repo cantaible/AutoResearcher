@@ -59,3 +59,5 @@
 - [x] docker-compose.opensearch.yml + build_opensearch_index.py
 - [x] docs/ANTIGRAVITY_PROXY_FIX.md（Clash Verge / Antigravity 代理稳定性排障记录）
 - [x] eval/EXPERIMENT_REPORT_V1_V7.md（v1-v7 实验结果汇总报告）
+- [x] eval/eval_full_pipeline.py（RAG 全链路分阶段评测：Plan/Dense/Sparse/Merge/Rerank/Compress/Supervisor）
+- [x] eval/FULL_PIPELINE_EVAL_REVIEW_20260531.md（全链路评测改造复盘）
