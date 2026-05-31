@@ -58,3 +58,4 @@
 - [x] OpenSearch 词法检索后端（替换手写 BM25）
 - [x] docker-compose.opensearch.yml + build_opensearch_index.py
 - [x] docs/ANTIGRAVITY_PROXY_FIX.md（Clash Verge / Antigravity 代理稳定性排障记录）
+- [x] eval/EXPERIMENT_REPORT_V1_V7.md（v1-v7 实验结果汇总报告）
